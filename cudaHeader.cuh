@@ -18,6 +18,6 @@ void summation(keyEntry* matrix, keyEntry * rowSums, reductionGuide * guide, int
 
 __global__ void device_summation(keyEntry * matrix, keyEntry *  rowSums, reductionGuide * guide, int * matrix_size, int * reductions);
 
-void maxima(keyEntry* rowSums, reductionGuide* guide, int * gpu_matrix_size, keyEntry * gpu_max, int * reductions, int threads);
+void maxima(keyEntry* matrix, keyEntry* rowSums, reductionGuide* guide, int * gpu_matrix_size, keyEntry * gpu_max, int * reductions, int threads);
 
-__global__ void device_maxima(keyEntry* rowSums, reductionGuide* guide, int* reductions, keyEntry * gpu_max, int * gpu_matrix_size);
+__global__ void device_maxima(keyEntry* matrix, keyEntry* rowSums, reductionGuide* guide, int* reductions, keyEntry * gpu_max, int * gpu_matrix_size);

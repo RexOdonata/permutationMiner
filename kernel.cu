@@ -71,16 +71,17 @@ __global__ void device_summation(keyEntry* matrix, keyEntry * rowSums, reduction
 		}
 		__syncthreads();
 	}
-	if (threadIdx.x == 0) rowSums[blockIdx.x] = matrix[blockIdx.x * (*matrix_size)];
 }
 
-void maxima(keyEntry* rowSums, reductionGuide* guide, int * gpu_matrix_size, keyEntry* gpu_max, int * reductions, int threads)
+void maxima(keyEntry* matrix, keyEntry* rowSums, reductionGuide* guide, int * gpu_matrix_size, keyEntry* gpu_max, int * reductions, int threads)
 {
-	device_maxima << < 1, threads >> > (rowSums, guide, reductions, gpu_max, gpu_matrix_size);
+	device_maxima << < 1, threads >> > (matrix, rowSums, guide, reductions, gpu_max, gpu_matrix_size);
 }
 
-__global__ void device_maxima(keyEntry* rowSums, reductionGuide* guide, int* reductions, keyEntry * gpu_max, int * gpu_matrix_Size)
+__global__ void device_maxima(keyEntry* matrix, keyEntry* rowSums, reductionGuide* guide, int* reductions, keyEntry * gpu_max, int * gpu_matrix_Size)
 {
+	rowSums[threadIdx.x] = matrix[(threadIdx.x) * *gpu_matrix_Size];
+
 	for (int i = 0; i < *reductions; i++)
 	{
 		if (guide[i].handleOdd == false && threadIdx.x < guide[i].increment)

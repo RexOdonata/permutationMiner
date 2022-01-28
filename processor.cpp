@@ -200,7 +200,7 @@ keyEntry processor::processDataFrame(std::vector<keyEntry>& input)
 
 	summation(gpu_matrix_UTM, gpu_row_sums, gpu_guide_summation, gpu_constant_matrixSize, gpu_constant_sumReductions, rowsPerThread, helper->summation_threads);
 
-	maxima(gpu_row_sums, gpu_guide_maxima, gpu_constant_matrixSize, gpu_constant_maxima, gpu_constant_maxReductions, helper->maxima_threads);
+	maxima(gpu_matrix_UTM, gpu_row_sums, gpu_guide_maxima, gpu_constant_matrixSize, gpu_constant_maxima, gpu_constant_maxReductions, helper->maxima_threads);
 
 	cudaMemcpy(&result, gpu_constant_maxima, sizeof(keyEntry), cudaMemcpyDeviceToHost);
 
