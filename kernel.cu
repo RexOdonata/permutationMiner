@@ -18,21 +18,17 @@ __global__ void device_Construct(keyEntry* permutation, keyEntry* matrix, matrix
 {
 	auto fIndex = blockIdx.x * (*permutation_size) + ConstructionGuide[threadIdx.x].lowIndex;
 	auto sIndex = blockIdx.x * (*permutation_size) + ConstructionGuide[threadIdx.x].highIndex;
-	keyEntry fVal = permutation[fIndex];
-	keyEntry sVal = permutation[sIndex];
+
+	keyEntry fVal = permutation[fIndex]-1;
+	keyEntry sVal = permutation[sIndex]-1;
 
 	unsigned short row, col;
 
-	if (fVal > sVal)
-	{
-		row = sVal - 1;
-		col = fVal - 1;
-	}
-	else
-	{
-		col = sVal - 1;
-		row = fVal - 1;
-	}
+	// ensure that column always gets the higher number and row gets the lower number
+	// the ternary operators are slight performance improvement over an if-else
+	// I think this is because they are able to compile to max-load instructions which don't result in divergence
+	row = (fVal < sVal) ? fVal : sVal;
+	col = (fVal < sVal) ? sVal : fVal;
 
 	unsigned short	outputIndex = col - 1 + (row * (*permutation_size - 2) - ((row - 1) * row) / 2);
 
