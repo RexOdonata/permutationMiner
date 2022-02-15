@@ -22,21 +22,6 @@ void processor::initGPUMemory()
 		cudaMalloc((void**)&gpu_matrix_UTM, size_t(rowsPerThread) * size_t(matrix_size) * sizeof(keyEntry));
 
 		cudaMalloc((void**)&gpu_row_sums, size_t(rowsPerThread) * sizeof(keyEntry));
-	}
-
-	// allocate and load in constants
-	{
-		cudaMalloc((void**)&gpu_constant_permutationSize, sizeof(int));
-		cudaMemcpy(gpu_constant_permutationSize, &permutation_size, sizeof(permutation_size), cudaMemcpyHostToDevice);
-
-		cudaMalloc((void**)&gpu_constant_matrixSize, sizeof(int));
-		cudaMemcpy(gpu_constant_matrixSize, &matrix_size, sizeof(matrix_size), cudaMemcpyHostToDevice);
-
-		cudaMalloc((void**)&gpu_constant_sumReductions, sizeof(int));
-		cudaMemcpy(gpu_constant_sumReductions, &(helper->summation_reductions), sizeof(helper->summation_reductions), cudaMemcpyHostToDevice);
-
-		cudaMalloc((void**)&gpu_constant_maxReductions, sizeof(int));
-		cudaMemcpy(gpu_constant_maxReductions, &(helper->maxima_reductions), sizeof(helper->maxima_reductions), cudaMemcpyHostToDevice);
 
 		cudaMallocHost((void**)&gpu_constant_maxima, sizeof(keyEntry));
 	}
@@ -194,13 +179,13 @@ keyEntry processor::processDataFrame(std::vector<keyEntry>& input)
 
 	cudaMemcpy(gpu_permutation_data, input.data(), size_t(permutation_size) * size_t(rowsPerThread) * sizeof(keyEntry), cudaMemcpyHostToDevice);
 
-	construct(gpu_permutation_data, gpu_matrix_UTM, gpu_guide_construction, gpu_constant_permutationSize, matrix_size, rowsPerThread);
+	construct(gpu_permutation_data, gpu_matrix_UTM, gpu_guide_construction, permutation_size, matrix_size, rowsPerThread);
 
 	difference(gpu_matrix_UTM, gpu_matrix_base, matrix_size, rowsPerThread);
 
-	summation(gpu_matrix_UTM, gpu_row_sums, gpu_guide_summation, gpu_constant_matrixSize, gpu_constant_sumReductions, rowsPerThread, helper->summation_threads);
+	summation(gpu_matrix_UTM, gpu_row_sums, gpu_guide_summation, matrix_size, helper->summation_reductions, rowsPerThread, helper->summation_threads);
 
-	maxima(gpu_matrix_UTM, gpu_row_sums, gpu_guide_maxima, gpu_constant_matrixSize, gpu_constant_maxima, gpu_constant_maxReductions, helper->maxima_threads);
+	maxima(gpu_matrix_UTM, gpu_row_sums, gpu_guide_maxima, matrix_size, gpu_constant_maxima, helper->maxima_reductions, helper->maxima_threads);
 
 	cudaMemcpy(&result, gpu_constant_maxima, sizeof(keyEntry), cudaMemcpyDeviceToHost);
 

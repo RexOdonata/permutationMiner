@@ -70,14 +70,7 @@ class processor
 		keyEntry * gpu_matrix_UTM;
 		//gpu row summary array
 		keyEntry* gpu_row_sums;
-		//gpu permutation size
-		int * gpu_constant_permutationSize;
-		//gpu permutation size
-		int* gpu_constant_matrixSize;
-		//gpu summation reductions
-		int * gpu_constant_sumReductions;
-		//gpu maxima reductions
-		int * gpu_constant_maxReductions;
+
 		//gpu  maxima result
 		keyEntry * gpu_constant_maxima;
 		//gpu baseMatrix
