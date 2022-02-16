@@ -5,10 +5,16 @@
 guide::guide(int permutation_size, int matrix_size, int rows)
 {
 	// the amount of reduction iterations to be performed to sum the differences in each row
-	summation_reductions = (int)ceil(log2((double)matrix_size));
+	summation_reductions = ceil(log2(matrix_size));
+
+	// the number of items to reduced ( 0 padded to a power of 2)
+	summation_size = pow(2, summation_reductions);
 
 	// the amount of reduction iterations to be performed to find the maximum difference from all rows
-	maxima_reductions = (int)ceil(log2((double)rows));
+	maxima_reductions = ceil(log2((double)rows));
+
+	// the amount of reduction iterations to be performed to find the maximum difference from all rows
+	maxima_size = pow(2, maxima_reductions);
 
 	for (int i = 0; i < permutation_size; i++)
 	{
@@ -16,41 +22,26 @@ guide::guide(int permutation_size, int matrix_size, int rows)
 		{
 			matrixIndexPair newPair{i,j};
 			constructionHelper.push_back(newPair);
-
 		}
 	}
 
 
 	// setting up the summation guide
-	setupReductionHelper(summationHelper, matrix_size, summation_reductions, summation_threads);
+	setupReductionHelper(summationHelper, summation_size, summation_threads);
 	
 
 	// setting up the maxima finder guide	
-	setupReductionHelper(maximaHelper, rows, maxima_reductions, maxima_threads);
+	setupReductionHelper(maximaHelper, maxima_size, maxima_threads);
 }
 
 
-void guide::setupReductionHelper(std::vector<reductionGuide>& guide, int size, int reductions, int &threads)
+void guide::setupReductionHelper(std::vector<int>& guide, int size, int &threads)
 {
 	//fill the array with guides
 	//guides show each element how far to look ahead and whehter or not the current iteration needs to handle odd
-	auto counter = size;
-	for (int i = 0; i < reductions; i++)
+	for (int i = size; 1 < i; i = i / 2)
 	{
-		reductionGuide newGuide;
-		newGuide.increment = counter / 2;
-		// if the increment is odd
-		if (counter % 2 > 0)
-		{
-			newGuide.handleOdd = true;
-		}
-		else
-			newGuide.handleOdd = false;
-
-		guide.push_back(newGuide);
-		counter -= newGuide.increment;
+		guide.push_back(i/2);
 	}
-
-	if (size % 2 > 0) threads = guide[0].increment + 1;
-	else threads = guide[0].increment;
+	threads = guide.front();
 }

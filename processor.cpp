@@ -5,7 +5,7 @@ processor::processor(int set_permutation_Size, std::vector<keyEntry>& set_preset
 {
 	createFeeds();
 
-	helper = std::make_unique<guide>(permutation_size, matrix_size, rowsPerThread);
+	helper = std::make_unique<guide>(permutation_size, matrix_size, rows);
 
 	initGPUMemory();
 
@@ -17,11 +17,11 @@ void processor::initGPUMemory()
 
 	// allocate memory on the GPU
 	{
-		cudaMallocHost((void**)&gpu_permutation_data, size_t(rowsPerThread) * size_t(permutation_size) * sizeof(keyEntry));
+		cudaMallocHost((void**)&gpu_permutation_data, size_t(rows) * size_t(permutation_size) * sizeof(keyEntry));
 
-		cudaMalloc((void**)&gpu_matrix_UTM, size_t(rowsPerThread) * size_t(matrix_size) * sizeof(keyEntry));
+		cudaMalloc((void**)&gpu_matrix_UTM, size_t(rows) * size_t(matrix_size) * sizeof(keyEntry));
 
-		cudaMalloc((void**)&gpu_row_sums, size_t(rowsPerThread) * sizeof(keyEntry));
+		cudaMalloc((void**)&gpu_row_sums, size_t(rows) * sizeof(keyEntry));
 
 		cudaMallocHost((void**)&gpu_constant_maxima, sizeof(keyEntry));
 	}
@@ -45,11 +45,11 @@ void processor::initGPUMemory()
 		cudaMalloc((void**)&gpu_guide_construction, helper->constructionHelper.size() * sizeof(matrixIndexPair));
 		cudaMemcpy(gpu_guide_construction, helper->constructionHelper.data(), helper->constructionHelper.size() * sizeof(matrixIndexPair), cudaMemcpyHostToDevice);
 
-		cudaMalloc((void**)&gpu_guide_summation, helper->summationHelper.size() * sizeof(reductionGuide));
-		cudaMemcpy(gpu_guide_summation, helper->summationHelper.data(), helper->summationHelper.size() * sizeof(reductionGuide), cudaMemcpyHostToDevice);
+		cudaMalloc((void**)&gpu_guide_summation, helper->summationHelper.size() * sizeof(int));
+		cudaMemcpy(gpu_guide_summation, helper->summationHelper.data(), helper->summationHelper.size() * sizeof(int), cudaMemcpyHostToDevice);
 
-		cudaMalloc((void**)&gpu_guide_maxima, helper->maximaHelper.size() * sizeof(reductionGuide));
-		cudaMemcpy(gpu_guide_maxima, helper->maximaHelper.data(), helper->maximaHelper.size() * sizeof(reductionGuide), cudaMemcpyHostToDevice);
+		cudaMalloc((void**)&gpu_guide_maxima, helper->maximaHelper.size() * sizeof(int));
+		cudaMemcpy(gpu_guide_maxima, helper->maximaHelper.data(), helper->maximaHelper.size() * sizeof(int), cudaMemcpyHostToDevice);
 	}
 }
 
@@ -118,7 +118,7 @@ keyEntry processor::getMax()
 
 void processor::printData(int frameNum, keyEntry * data)
 {
-	auto tableSize =  rowsPerThread * permutation_size;
+	auto tableSize =  rows * permutation_size;
 	printf("Data:\n");
 	for (int i = 0; i < tableSize; i++)
 	{
@@ -146,13 +146,13 @@ void processor::createFeeds()
 	}
 
 
-	rowsPerThread = (CORES / matrix_size);
+	rows = (CORES / matrix_size);
 
-	data_size = rowsPerThread * permutation_size;
+	data_size = rows * permutation_size;
 	
 
-	factory[0] = std::make_unique<feeder>(rowsPerThread, permutation_size, this, 0);
-	factory[1] = std::make_unique<feeder>(rowsPerThread, permutation_size, this, 1);
+	factory[0] = std::make_unique<feeder>(rows, permutation_size, this, 0);
+	factory[1] = std::make_unique<feeder>(rows, permutation_size, this, 1);
 
 
 
@@ -177,15 +177,15 @@ keyEntry processor::processDataFrame(std::vector<keyEntry>& input)
 
 	keyEntry result = 0;
 
-	cudaMemcpy(gpu_permutation_data, input.data(), size_t(permutation_size) * size_t(rowsPerThread) * sizeof(keyEntry), cudaMemcpyHostToDevice);
+	cudaMemcpy(gpu_permutation_data, input.data(), size_t(permutation_size) * size_t(rows) * sizeof(keyEntry), cudaMemcpyHostToDevice);
 
-	construct(gpu_permutation_data, gpu_matrix_UTM, gpu_guide_construction, permutation_size, matrix_size, rowsPerThread);
+	construct(gpu_permutation_data, gpu_matrix_UTM, gpu_guide_construction, permutation_size, matrix_size, rows);
 
-	difference(gpu_matrix_UTM, gpu_matrix_base, matrix_size, rowsPerThread);
+	difference(gpu_matrix_UTM, gpu_matrix_base, matrix_size, rows);
 
-	summation(gpu_matrix_UTM, gpu_row_sums, gpu_guide_summation, matrix_size, helper->summation_reductions, rowsPerThread, helper->summation_threads);
+	summation(gpu_matrix_UTM, gpu_row_sums, gpu_guide_summation, helper->summation_size, matrix_size, helper->summation_reductions, rows, helper->summation_threads);
 
-	maxima(gpu_matrix_UTM, gpu_row_sums, gpu_guide_maxima, matrix_size, gpu_constant_maxima, helper->maxima_reductions, helper->maxima_threads);
+	maxima(gpu_row_sums, gpu_constant_maxima, gpu_guide_maxima, rows, helper->maxima_size,helper->maxima_reductions, helper->maxima_threads);
 
 	cudaMemcpy(&result, gpu_constant_maxima, sizeof(keyEntry), cudaMemcpyDeviceToHost);
 

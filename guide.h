@@ -10,30 +10,26 @@ struct matrixIndexPair
 	int highIndex;
 };
 
-struct reductionGuide
-{
-	int increment;
-	bool handleOdd;
-};
-
 
 class guide
 {
 	private:
-		void setupReductionHelper(std::vector<reductionGuide> &guide, int size, int reductions, int& threads);
+		void setupReductionHelper(std::vector<int> &guide, int size, int& threads);
 
 	public:
 		guide(int permutation_size, int matrix_size, int rows);
 
 		std::vector<matrixIndexPair> constructionHelper;
-		std::vector<reductionGuide> summationHelper;
-		std::vector<reductionGuide> maximaHelper;
+		std::vector<int> summationHelper;
+		std::vector<int> maximaHelper;
 
 		int summation_threads;
 		int summation_reductions;
+		int summation_size;
 
 		int maxima_threads;
 		int maxima_reductions;
+		int maxima_size;
 
 		int matrix_size;
 

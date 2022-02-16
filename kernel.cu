@@ -6,7 +6,7 @@
 
 
 
-void construct(keyEntry* permutation, keyEntry* matrix, matrixIndexPair * ConstructionGuide, const int permutation_size, int matrix_size, int rows)
+void construct(keyEntry* permutation, keyEntry* matrix, matrixIndexPair * ConstructionGuide, const int permutation_size, const int matrix_size, const int rows)
 {
 	device_Construct << < rows, matrix_size >> > (permutation, matrix, ConstructionGuide, permutation_size);
 }
@@ -44,47 +44,49 @@ __global__ void device_difference(keyEntry* matrix, keyEntry* baseMatrix)
 	matrix[blockIdx.x * blockDim.x + threadIdx.x] = abs(valM - valB);
 }
 
-void summation(keyEntry* matrix, keyEntry * rowSums, reductionGuide* guide, const int matrix_size, const int reductions, int rows, int threads)
+void summation(keyEntry* matrix, keyEntry* rowSums, int* incGuide, const int reduction_size, const int matrix_size, const int reductions, const int rows, const int threads)
 {
-	device_summation << < rows, threads >>> (matrix, rowSums, guide, matrix_size, reductions);
+	device_summation << < rows, threads, reduction_size * sizeof(keyEntry) >>> (matrix, rowSums, incGuide, reduction_size, matrix_size, reductions);
 }
 
-__global__ void device_summation(keyEntry* matrix, keyEntry * rowSums, reductionGuide* guide, const int matrix_size, const int reductions)
+__global__ void device_summation(keyEntry* matrix, keyEntry* rowSums, int* incGuide, const int reduction_size, const int matrix_size, const int reductions)
 {
-	for (int i = 0; i < reductions; i++)
-	{
-		if (guide[i].handleOdd == false && threadIdx.x < guide[i].increment)
-		{
-			matrix[blockIdx.x * (matrix_size) + threadIdx.x] += matrix[blockIdx.x * (matrix_size) + threadIdx.x + guide[i].increment];
-		}			
-		else if (guide[i].handleOdd == true && threadIdx.x <= guide[i].increment && !(threadIdx.x == 0))
-		{
-			matrix[blockIdx.x * (matrix_size) + threadIdx.x] += matrix[blockIdx.x * (matrix_size) + threadIdx.x + guide[i].increment];
-		}
-		__syncthreads();
-	}
-}
+	extern __shared__ keyEntry reductionData[];
 
-void maxima(keyEntry* matrix, keyEntry* rowSums, reductionGuide* guide, const int gpu_matrix_size, keyEntry* gpu_max, const int reductions, int threads)
-{
-	device_maxima << < 1, threads >> > (matrix, rowSums, guide, reductions, gpu_max, gpu_matrix_size);
-}
+	reductionData[threadIdx.x] = matrix[blockIdx.x * (matrix_size)+threadIdx.x];
+	reductionData[threadIdx.x + reduction_size / 2] = (matrix_size-1 < threadIdx.x + reduction_size / 2) ? 0 : matrix[blockIdx.x * (matrix_size)+threadIdx.x + reduction_size / 2];
 
-__global__ void device_maxima(keyEntry* matrix, keyEntry* rowSums, reductionGuide* guide, const int reductions, keyEntry * gpu_max, const int gpu_matrix_Size)
-{
-	rowSums[threadIdx.x] = matrix[(threadIdx.x) * gpu_matrix_Size];
+	__syncthreads();
 
 	for (int i = 0; i < reductions; i++)
 	{
-		if (guide[i].handleOdd == false && threadIdx.x < guide[i].increment)
-		{
-			rowSums[threadIdx.x] = max(rowSums[threadIdx.x], rowSums[threadIdx.x + guide[i].increment]);
-		}
-		else if (guide[i].handleOdd == true && threadIdx.x <= guide[i].increment && !(threadIdx.x == 0))
-		{
-			rowSums[threadIdx.x] = max(rowSums[threadIdx.x], rowSums[threadIdx.x + guide[i].increment]);
-		}
+		if (threadIdx.x < incGuide[i]) reductionData[threadIdx.x] += reductionData[threadIdx.x + incGuide[i]];
 		__syncthreads();
 	}
-	if (threadIdx.x==0) gpu_max[0] = rowSums[0];
+
+	if (threadIdx.x == 0) rowSums[blockIdx.x] = reductionData[0];
+	
+}
+
+void maxima(keyEntry* rowSums, keyEntry* gpu_max, int* guide, const int rows, const int reduction_size, const int reductions, int threads)
+{
+	device_maxima << < 1, threads, reduction_size * sizeof(keyEntry) >> > (rowSums, gpu_max, guide, reduction_size, reductions, rows);
+}
+
+__global__ void device_maxima( keyEntry* rowSums, keyEntry* gpu_max, int* incGuide, const int reduction_size, const int reductions, const int rows)
+{
+	extern __shared__ keyEntry reductionData[];
+
+	reductionData[threadIdx.x] = rowSums[threadIdx.x];
+	reductionData[threadIdx.x + reduction_size / 2] = (rows - 1 < threadIdx.x + reduction_size / 2) ? 0 : rowSums[threadIdx.x + reduction_size / 2];
+
+	__syncthreads();
+
+	for (int i = 0; i < reductions; i++)
+	{
+		if (threadIdx.x < incGuide[i]) reductionData[threadIdx.x] = max(reductionData[threadIdx.x],reductionData[threadIdx.x + incGuide[i]]);
+		__syncthreads();
+	}
+
+	if (threadIdx.x == 0) *gpu_max = reductionData[0];
 }

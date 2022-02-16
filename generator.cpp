@@ -28,8 +28,7 @@ generator::generator(std::vector<keyEntry> set_preset, keyEntry seedElement, int
 void generator::zeroPad()
 {
 	std::iota(seed_permutation.begin(), seed_permutation.end(),1);
-	auto last = active_permutation.at(active_permutation.size() - 1);
-	std::iota(active_permutation.begin(), active_permutation.end(), last);
+	std::iota(active_permutation.begin(), active_permutation.end(), seed_permutation.back()+1);
 }
 
 void generator::advancePermutation()

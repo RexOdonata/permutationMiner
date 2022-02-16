@@ -48,7 +48,7 @@ class processor
 		//basic members
 		const int permutation_size;
 		const int matrix_size;
-		int rowsPerThread;
+		int rows;
 
 		int data_size;
 
@@ -79,9 +79,9 @@ class processor
 		//gpu matrix construction guide
 		matrixIndexPair * gpu_guide_construction;
 		//gpu summation reduction guide
-		reductionGuide * gpu_guide_summation;
+		int * gpu_guide_summation;
 		//gpu maximization reduction guide
-		reductionGuide * gpu_guide_maxima;
+		int * gpu_guide_maxima;
 
 #if frameTiming
 		std::vector<double> frameCompTime;
