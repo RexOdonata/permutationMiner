@@ -65,7 +65,7 @@ bool feeder::fillFrame()
 void feeder::padFrame(int startRow)
 {
 	source->zeroPad();
-	for (int row = startRow+1; row < rowsToFill; row++)
+	for (int row = startRow; row < rowsToFill; row++)
 	{
 		source->loadData(data,row);
 	}

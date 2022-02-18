@@ -13,11 +13,12 @@ void construct(keyEntry* permutation, keyEntry* matrix, matrixIndexPair * Constr
 
 __global__ void device_Construct(keyEntry* permutation, keyEntry* matrix, matrixIndexPair* ConstructionGuide, const int permutation_size)
 {
-	auto fIndex = blockIdx.x * (permutation_size) + ConstructionGuide[threadIdx.x].lowIndex;
-	auto sIndex = blockIdx.x * (permutation_size) + ConstructionGuide[threadIdx.x].highIndex;
+	keyEntry fIndex = blockIdx.x * (permutation_size) + ConstructionGuide[threadIdx.x].lowIndex;
+	keyEntry sIndex = blockIdx.x * (permutation_size) + ConstructionGuide[threadIdx.x].highIndex;
 
-	keyEntry fVal = permutation[fIndex]-1;
-	keyEntry sVal = permutation[sIndex]-1;
+	keyEntry fVal = permutation[fIndex];
+	keyEntry sVal = permutation[sIndex];
+
 
 	unsigned short row, col;
 
@@ -27,8 +28,11 @@ __global__ void device_Construct(keyEntry* permutation, keyEntry* matrix, matrix
 	row = (fVal < sVal) ? fVal : sVal;
 	col = (fVal < sVal) ? sVal : fVal;
 
-	unsigned short	outputIndex = col - 1 + (row * (permutation_size - 2) - ((row - 1) * row) / 2);
+	row--;
+	col--;
 
+	int	outputIndex = col - 1 + (row * (permutation_size - 2) - ((row - 1) * row) / 2);
+	int matrixIndex = outputIndex + blockIdx.x * blockDim.x;
 	matrix[blockIdx.x * blockDim.x + outputIndex] = ConstructionGuide[threadIdx.x].highIndex - ConstructionGuide[threadIdx.x].lowIndex;
 }
 
@@ -53,6 +57,8 @@ __global__ void device_summation(keyEntry* matrix, keyEntry* rowSums, int* incGu
 {
 	extern __shared__ keyEntry reductionData[];
 
+	//transfer from global to shared memory in two halves
+	//for the second half, pad with zeroes where neccessary.
 	reductionData[threadIdx.x] = matrix[blockIdx.x * (matrix_size)+threadIdx.x];
 	reductionData[threadIdx.x + reduction_size / 2] = (matrix_size-1 < threadIdx.x + reduction_size / 2) ? 0 : matrix[blockIdx.x * (matrix_size)+threadIdx.x + reduction_size / 2];
 
