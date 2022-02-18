@@ -179,9 +179,7 @@ keyEntry processor::processDataFrame(std::vector<keyEntry>& input)
 
 	cudaMemcpy(gpu_permutation_data, input.data(), size_t(permutation_size) * size_t(rows) * sizeof(keyEntry), cudaMemcpyHostToDevice);
 
-	construct(gpu_permutation_data, gpu_matrix_UTM, gpu_guide_construction, permutation_size, matrix_size, rows);
-
-	difference(gpu_matrix_UTM, gpu_matrix_base, matrix_size, rows);
+	construct(gpu_permutation_data, gpu_matrix_UTM, gpu_matrix_base, gpu_guide_construction, permutation_size, matrix_size, rows);
 
 	summation(gpu_matrix_UTM, gpu_row_sums, gpu_guide_summation, helper->summation_size, matrix_size, helper->summation_reductions, rows, helper->summation_threads);
 

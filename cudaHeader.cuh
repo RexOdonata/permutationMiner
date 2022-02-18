@@ -6,13 +6,9 @@
 #include "defines.h"
 
 
-void construct(keyEntry * permutation, keyEntry * matrix, matrixIndexPair * ConstructionGuide, const int permutation_size, const int  matrix_size, const int rows);
+void construct(keyEntry * permutation, keyEntry * matrix, keyEntry* baseMatrix, matrixIndexPair * ConstructionGuide, const int permutation_size, const int  matrix_size, const int rows);
 
-__global__ void device_Construct(keyEntry* permutation, keyEntry* matrix, matrixIndexPair* ConstructionGuide, const int permutation_size);
-
-void difference(keyEntry * matrix, keyEntry * baseMatrix, const int matrix_size, const int rows);
-
-__global__ void device_difference(keyEntry* matrix, keyEntry* baseMatrix);
+__global__ void device_Construct(keyEntry* permutation, keyEntry* matrix, keyEntry* baseMatrix,  matrixIndexPair* ConstructionGuide, const int permutation_size);
 
 void summation(keyEntry* matrix, keyEntry * rowSums, int * incGuide, const int reduction_size, const int matrix_size, const int reductions, const int rows, const int threads);
 

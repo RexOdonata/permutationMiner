@@ -6,12 +6,12 @@
 
 
 
-void construct(keyEntry* permutation, keyEntry* matrix, matrixIndexPair * ConstructionGuide, const int permutation_size, const int matrix_size, const int rows)
+void construct(keyEntry* permutation, keyEntry* matrix, keyEntry* baseMatrix, matrixIndexPair * constructionGuide, const int permutation_size, const int matrix_size, const int rows)
 {
-	device_Construct << < rows, matrix_size >> > (permutation, matrix, ConstructionGuide, permutation_size);
+	device_Construct << < rows, matrix_size >> > (permutation, matrix, baseMatrix, constructionGuide, permutation_size);
 }
 
-__global__ void device_Construct(keyEntry* permutation, keyEntry* matrix, matrixIndexPair* ConstructionGuide, const int permutation_size)
+__global__ void device_Construct(keyEntry* permutation, keyEntry* matrix, keyEntry* baseMatrix, matrixIndexPair* ConstructionGuide, const int permutation_size)
 {
 	keyEntry fIndex = blockIdx.x * (permutation_size) + ConstructionGuide[threadIdx.x].lowIndex;
 	keyEntry sIndex = blockIdx.x * (permutation_size) + ConstructionGuide[threadIdx.x].highIndex;
@@ -32,20 +32,9 @@ __global__ void device_Construct(keyEntry* permutation, keyEntry* matrix, matrix
 	col--;
 
 	int	outputIndex = col - 1 + (row * (permutation_size - 2) - ((row - 1) * row) / 2);
-	int matrixIndex = outputIndex + blockIdx.x * blockDim.x;
-	matrix[blockIdx.x * blockDim.x + outputIndex] = ConstructionGuide[threadIdx.x].highIndex - ConstructionGuide[threadIdx.x].lowIndex;
-}
-
-void difference(keyEntry* matrix, keyEntry* baseMatrix, int matrix_size, int rows)
-{
-	device_difference << < rows, matrix_size >> > (matrix, baseMatrix);
-}
-
-__global__ void device_difference(keyEntry* matrix, keyEntry* baseMatrix)
-{
-	keyEntry valM = matrix[blockIdx.x * blockDim.x + threadIdx.x];
-	keyEntry valB = baseMatrix[threadIdx.x];
-	matrix[blockIdx.x * blockDim.x + threadIdx.x] = abs(valM - valB);
+	keyEntry valM = ConstructionGuide[threadIdx.x].highIndex - ConstructionGuide[threadIdx.x].lowIndex;
+	keyEntry valB = baseMatrix[outputIndex];
+	matrix[blockIdx.x * blockDim.x + outputIndex] = abs(valM-valB);
 }
 
 void summation(keyEntry* matrix, keyEntry* rowSums, int* incGuide, const int reduction_size, const int matrix_size, const int reductions, const int rows, const int threads)
