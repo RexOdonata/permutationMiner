@@ -47,6 +47,8 @@ bool feeder::fillFrame()
 
 		if (needNewGen)
 		{
+			std::string label = source->getLabel();
+			proc->printCompletion("Seed " + label + "is done.\n");
 			if (seeds.size() > 0) loadGenerator();
 			else
 			{

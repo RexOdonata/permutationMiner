@@ -24,6 +24,7 @@ void processor::initGPUMemory()
 		cudaMalloc((void**)&gpu_row_sums, size_t(rows) * sizeof(keyEntry));
 
 		cudaMallocHost((void**)&gpu_constant_maxima, sizeof(keyEntry));
+		cudaMemcpy(gpu_constant_maxima, 0, sizeof(keyEntry), cudaMemcpyHostToDevice);
 	}
 
 	// create the base matrix and load it
@@ -70,6 +71,7 @@ void processor::run()
 	{
 		thread.join();
 	}
+	cudaMemcpy(&maxDifference, gpu_constant_maxima, sizeof(keyEntry), cudaMemcpyDeviceToHost);
 
 #if runTiming
 	record_TCT();
@@ -100,8 +102,7 @@ void processor::contactProcessor(std::vector<keyEntry>& input, char feedID)
 	printData(0, input.data());
 #endif // DEBUG	
 
-	auto result = processDataFrame(input);
-	maxDifference = std::max(maxDifference, result);
+	processDataFrame(input);
 
 	gpuLock.store(feedID+lockBreaker);
 }
@@ -114,6 +115,13 @@ void processor::relaxLock()
 keyEntry processor::getMax()
 {
 	return maxDifference;
+}
+
+void processor::printCompletion(std::string msg)
+{
+	printMtx.lock();
+	std::cout << msg << std::endl;
+	printMtx.unlock();
 }
 
 void processor::printData(int frameNum, keyEntry * data)
@@ -169,7 +177,7 @@ void processor::createFeeds()
 
 }
 
-keyEntry processor::processDataFrame(std::vector<keyEntry>& input)
+void processor::processDataFrame(std::vector<keyEntry>& input)
 {
 #if frameTiming
 	clock_FCT();
@@ -185,13 +193,10 @@ keyEntry processor::processDataFrame(std::vector<keyEntry>& input)
 
 	maxima(gpu_row_sums, gpu_constant_maxima, gpu_guide_maxima, rows, helper->maxima_size,helper->maxima_reductions, helper->maxima_threads);
 
-	cudaMemcpy(&result, gpu_constant_maxima, sizeof(keyEntry), cudaMemcpyDeviceToHost);
 
 #if frameTiming
 	record_FCT();
 #endif // 0
-
-	return result;
 
 }
 

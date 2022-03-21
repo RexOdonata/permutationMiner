@@ -25,8 +25,8 @@ __global__ void device_Construct(keyEntry* permutation, keyEntry* matrix, keyEnt
 	// ensure that column always gets the higher number and row gets the lower number
 	// the ternary operators are slight performance improvement over an if-else
 	// I think this is because they are able to compile to max-load instructions which don't result in divergence
-	row = (fVal < sVal) ? fVal : sVal;
-	col = (fVal < sVal) ? sVal : fVal;
+	row = min(fVal, sVal);
+	col = max(fVal, sVal);
 
 	row--;
 	col--;
@@ -83,5 +83,5 @@ __global__ void device_maxima( keyEntry* rowSums, keyEntry* gpu_max, int* incGui
 		__syncthreads();
 	}
 
-	if (threadIdx.x == 0) *gpu_max = reductionData[0];
+	if (threadIdx.x == 0) *gpu_max = max(*gpu_max,reductionData[0]);
 }

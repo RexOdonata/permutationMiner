@@ -1,5 +1,16 @@
 #include "generator.h"
 
+std::string generator::getLabel()
+{
+	std::string label = "";
+
+	for (auto element : seed_permutation)
+	{
+		label += std::to_string(element) + " ";
+	}
+	return label;
+}
+
 generator::generator(std::vector<keyEntry> set_preset, keyEntry seedElement, int set_permutation_size) : permutation_size(set_permutation_size), seedPermutation_size(set_preset.size()+1)
 {
 	seed_permutation = set_preset;

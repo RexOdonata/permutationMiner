@@ -16,6 +16,7 @@
 #include <chrono>
 #include <array>
 #include <atomic>
+#include <mutex>
 
 class feeder;
 
@@ -32,12 +33,14 @@ class processor
 
 		keyEntry getMax();
 
+		void printCompletion(std::string msg);
+
 	private:
 
 		//functions
 		void createFeeds();
 
-		keyEntry processDataFrame(std::vector<keyEntry>& input);
+		void processDataFrame(std::vector<keyEntry>& input);
 
 		void printData(int frameNum, keyEntry * data);
 
@@ -63,6 +66,8 @@ class processor
 		char lockBreaker = 0;
 
 		std::unique_ptr<guide> helper;
+
+		std::mutex printMtx;
 
 		//gpu permutation memory
 		keyEntry * gpu_permutation_data;

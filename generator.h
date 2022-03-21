@@ -4,6 +4,8 @@
 #include <vector>
 #include <numeric>
 
+#include <string>
+
 enum class generatorState
 {
 	WAITING,
@@ -26,7 +28,6 @@ class generator
 		std::vector<keyEntry> active_permutation;
 		std::vector<keyEntry> seed_permutation;
 
-
 	public:
 		generatorState state;
 
@@ -41,6 +42,8 @@ class generator
 		void loadData(std::vector<keyEntry>& data,int address);
 
 		void printPermutation();
+
+		std::string getLabel();
 
 #ifdef timingOutput
 
