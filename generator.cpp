@@ -1,6 +1,6 @@
 #include "generator.h"
 
-std::string generator::getLabel()
+const std::string generator::getLabel()
 {
 	std::string label = "";
 
@@ -81,14 +81,14 @@ bool generator::advanceToNext()
 }
 
 
-void generator::loadData(std::vector<keyEntry>& data, int row)
+const void generator::loadData(std::vector<keyEntry>& data, int row)
 {
 	int startAddress = row * permutation_size;
 	std::copy(seed_permutation.begin(), seed_permutation.end(), data.begin() + startAddress);
 	std::copy(active_permutation.begin(), active_permutation.end(), data.begin() + startAddress + seedPermutation_size);
 }
 
-void generator::printPermutation()
+const void generator::printPermutation()
 {
 	for (keyEntry element : seed_permutation) printf("[%d] ",element);
 	for (keyEntry element : active_permutation) printf("[%d] ", element);

@@ -6,9 +6,9 @@
 
 
 
-void construct(keyEntry* permutation, keyEntry* matrix, keyEntry* baseMatrix, matrixIndexPair * constructionGuide, const int permutation_size, const int matrix_size, const int rows)
+void construct(keyEntry* permutation, keyEntry* matrix, keyEntry* baseMatrix, matrixIndexPair * constructionGuide, const int permutation_size, const int matrix_size, const int rows, cudaStream_t stream)
 {
-	device_Construct << < rows, matrix_size >> > (permutation, matrix, baseMatrix, constructionGuide, permutation_size);
+	device_Construct << < rows, matrix_size, 0, stream >> > (permutation, matrix, baseMatrix, constructionGuide, permutation_size);
 }
 
 __global__ void device_Construct(keyEntry* permutation, keyEntry* matrix, keyEntry* baseMatrix, matrixIndexPair* ConstructionGuide, const int permutation_size)
@@ -23,8 +23,7 @@ __global__ void device_Construct(keyEntry* permutation, keyEntry* matrix, keyEnt
 	unsigned short row, col;
 
 	// ensure that column always gets the higher number and row gets the lower number
-	// the ternary operators are slight performance improvement over an if-else
-	// I think this is because they are able to compile to max-load instructions which don't result in divergence
+	// max/min are able to compile to max-load instructions which don't result in divergence
 	row = min(fVal, sVal);
 	col = max(fVal, sVal);
 
@@ -37,9 +36,9 @@ __global__ void device_Construct(keyEntry* permutation, keyEntry* matrix, keyEnt
 	matrix[blockIdx.x * blockDim.x + outputIndex] = abs(valM-valB);
 }
 
-void summation(keyEntry* matrix, keyEntry* rowSums, int* incGuide, const int reduction_size, const int matrix_size, const int reductions, const int rows, const int threads)
+void summation(keyEntry* matrix, keyEntry* rowSums, int* incGuide, const int reduction_size, const int matrix_size, const int reductions, const int rows, const int threads, cudaStream_t stream)
 {
-	device_summation << < rows, threads, reduction_size * sizeof(keyEntry) >>> (matrix, rowSums, incGuide, reduction_size, matrix_size, reductions);
+	device_summation << < rows, threads, reduction_size * sizeof(keyEntry), stream >>> (matrix, rowSums, incGuide, reduction_size, matrix_size, reductions);
 }
 
 __global__ void device_summation(keyEntry* matrix, keyEntry* rowSums, int* incGuide, const int reduction_size, const int matrix_size, const int reductions)
@@ -63,9 +62,9 @@ __global__ void device_summation(keyEntry* matrix, keyEntry* rowSums, int* incGu
 	
 }
 
-void maxima(keyEntry* rowSums, keyEntry* gpu_max, int* guide, const int rows, const int reduction_size, const int reductions, int threads)
+void maxima(keyEntry* rowSums, keyEntry* gpu_max, int* guide, const int rows, const int reduction_size, const int reductions, int threads, cudaStream_t stream)
 {
-	device_maxima << < 1, threads, reduction_size * sizeof(keyEntry) >> > (rowSums, gpu_max, guide, reduction_size, reductions, rows);
+	device_maxima << < 1, threads, reduction_size * sizeof(keyEntry), stream >> > (rowSums, gpu_max, guide, reduction_size, reductions, rows);
 }
 
 __global__ void device_maxima( keyEntry* rowSums, keyEntry* gpu_max, int* incGuide, const int reduction_size, const int reductions, const int rows)

@@ -2,9 +2,12 @@
 
 #include "processor.h"
 #include "generator.h"
+#include "gpuMem.h"
 
 #include <memory>
 #include <chrono>
+
+#include "cuda_runtime.h"
 
 
 class processor;
@@ -20,6 +23,8 @@ class feeder
 
 		void run();
 
+		const keyEntry getMax();
+
 #if frameTiming
 		std::vector<double> frameFillTime;
 		std::chrono::time_point<std::chrono::high_resolution_clock> fTic;
@@ -31,9 +36,16 @@ class feeder
 
 	private:
 		
-		const int rowsToFill;
+		const int rows;
 		const int permutation_size;
+		const int matrix_size;
 		const char id;
+
+		keyEntry max;
+
+		gpuFeedMem gpu_feed_private;
+
+		cudaStream_t stream;
 
 		std::vector<keyEntry> data;
 
@@ -48,6 +60,8 @@ class feeder
 		bool fillFrame();
 
 		void padFrame(int startRow);
+
+
 
 
 

@@ -39,11 +39,11 @@ class generator
 
 		void zeroPad();
 
-		void loadData(std::vector<keyEntry>& data,int address);
+		const void loadData(std::vector<keyEntry>& data,int address);
 
-		void printPermutation();
+		const void printPermutation();
 
-		std::string getLabel();
+		const std::string getLabel();
 
 #ifdef timingOutput
 

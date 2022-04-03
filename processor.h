@@ -3,6 +3,7 @@
 #include "feeder.h"
 #include "generator.h"
 #include "guide.h"
+#include "gpuMem.h"
 
 #include "cudaHeader.cuh"
 
@@ -27,26 +28,22 @@ class processor
 
 		void run();
 
-		void contactProcessor(std::vector<keyEntry> &input, char);
+		void contactProcessor(std::vector<keyEntry> &input, const char feedID, cudaStream_t stream, gpuFeedMem feedMem);
 
 		void relaxLock();
 
-		keyEntry getMax();
+		const keyEntry getMax();
 
-		void printCompletion(std::string msg);
+		void printCompletion(const std::string msg);
 
 	private:
 
 		//functions
 		void createFeeds();
 
-		void processDataFrame(std::vector<keyEntry>& input);
-
-		void printData(int frameNum, keyEntry * data);
+		const void printData(const int frameNum, keyEntry * data);
 
 		void initGPUMemory();
-
-		
 
 		//basic members
 		const int permutation_size;
@@ -69,24 +66,10 @@ class processor
 
 		std::mutex printMtx;
 
-		//gpu permutation memory
-		keyEntry * gpu_permutation_data;
-		//gpu UTM memory
-		keyEntry * gpu_matrix_UTM;
-		//gpu row summary array
-		keyEntry* gpu_row_sums;
+		gpuCommonMem gpu_commons;
 
-		//gpu  maxima result
-		keyEntry * gpu_constant_maxima;
-		//gpu baseMatrix
-		keyEntry * gpu_matrix_base;
 
-		//gpu matrix construction guide
-		matrixIndexPair * gpu_guide_construction;
-		//gpu summation reduction guide
-		int * gpu_guide_summation;
-		//gpu maximization reduction guide
-		int * gpu_guide_maxima;
+		
 
 #if frameTiming
 		std::vector<double> frameCompTime;
@@ -101,7 +84,7 @@ class processor
 		std::chrono::duration<double> timeElapsed;
 		void clock_TCT();
 		void record_TCT();
-		void display_TCT();
+		const void display_TCT();
 #endif
 };
 

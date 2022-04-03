@@ -1,9 +1,25 @@
 #include "feeder.h"
 
 feeder::feeder(int set_rowsPerThread, int set_permutation_size, processor * set_parent, char set_id) :
-	rowsToFill(set_rowsPerThread), permutation_size(set_permutation_size), proc(set_parent), id(set_id)
+	rows(set_rowsPerThread), permutation_size(set_permutation_size), proc(set_parent), id(set_id), matrix_size((permutation_size-1)*(permutation_size)/2)
 {
-	data.resize(static_cast<long long>(rowsToFill) * static_cast<long long>(permutation_size), 0);
+	data.resize(static_cast<long long>(rows) * static_cast<long long>(permutation_size), 0);
+
+	cudaStreamCreate(&stream);
+
+	// allocate memory on the GPU
+	{
+		cudaMallocHost((void**)&(gpu_feed_private.gpu_permutation_data), size_t(rows) * size_t(permutation_size) * sizeof(keyEntry));
+
+		cudaMalloc((void**)&(gpu_feed_private.gpu_matrix_UTM), size_t(rows) * size_t(matrix_size) * sizeof(keyEntry));
+
+		cudaMalloc((void**)&(gpu_feed_private.gpu_row_sums), size_t(rows) * sizeof(keyEntry));
+
+		cudaMallocHost((void**)&(gpu_feed_private.gpu_constant_maxima), sizeof(keyEntry));
+		cudaMemcpy(gpu_feed_private.gpu_constant_maxima, 0, sizeof(keyEntry), cudaMemcpyHostToDevice);
+	}
+
+	max = 0;
 }
 
 void feeder::storeGenerator(std::unique_ptr<generator> in)
@@ -32,16 +48,24 @@ void feeder::run()
 		record_FPT();
 #endif // DEBUG
 
-		proc->contactProcessor(data,id);
+		proc->contactProcessor(data,id, stream, gpu_feed_private);
 	}
+	
+	//copy result into private
+	cudaStreamSynchronize(stream);
+	cudaMemcpy(&max, gpu_feed_private.gpu_constant_maxima, sizeof(keyEntry), cudaMemcpyDeviceToHost);
 
 	proc->relaxLock();
+}
 
+const keyEntry feeder::getMax()
+{
+	return max;
 }
 
 bool feeder::fillFrame()
 {
-	for (int row = 0; row < rowsToFill; row++)
+	for (int row = 0; row < rows; row++)
 	{
 		auto needNewGen = source->advanceToNext();
 
@@ -67,7 +91,7 @@ bool feeder::fillFrame()
 void feeder::padFrame(int startRow)
 {
 	source->zeroPad();
-	for (int row = startRow; row < rowsToFill; row++)
+	for (int row = startRow; row < rows; row++)
 	{
 		source->loadData(data,row);
 	}

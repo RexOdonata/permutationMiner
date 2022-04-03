@@ -15,18 +15,6 @@ processor::processor(int set_permutation_Size, std::vector<keyEntry>& set_preset
 void processor::initGPUMemory()
 {
 
-	// allocate memory on the GPU
-	{
-		cudaMallocHost((void**)&gpu_permutation_data, size_t(rows) * size_t(permutation_size) * sizeof(keyEntry));
-
-		cudaMalloc((void**)&gpu_matrix_UTM, size_t(rows) * size_t(matrix_size) * sizeof(keyEntry));
-
-		cudaMalloc((void**)&gpu_row_sums, size_t(rows) * sizeof(keyEntry));
-
-		cudaMallocHost((void**)&gpu_constant_maxima, sizeof(keyEntry));
-		cudaMemcpy(gpu_constant_maxima, 0, sizeof(keyEntry), cudaMemcpyHostToDevice);
-	}
-
 	// create the base matrix and load it
 	{
 		std::vector<keyEntry> base(matrix_size);
@@ -37,22 +25,23 @@ void processor::initGPUMemory()
 			start += i;
 		}
 
-		cudaMalloc((void**)&gpu_matrix_base, matrix_size * sizeof(keyEntry));
-		cudaMemcpy(gpu_matrix_base, base.data(), matrix_size * sizeof(keyEntry), cudaMemcpyHostToDevice);
+		cudaMalloc((void**)&(gpu_commons.gpu_matrix_base), matrix_size * sizeof(keyEntry));
+		cudaMemcpy(gpu_commons.gpu_matrix_base, base.data(), matrix_size * sizeof(keyEntry), cudaMemcpyHostToDevice);
 	}
 
 	// allocate and load helpers
 	{
-		cudaMalloc((void**)&gpu_guide_construction, helper->constructionHelper.size() * sizeof(matrixIndexPair));
-		cudaMemcpy(gpu_guide_construction, helper->constructionHelper.data(), helper->constructionHelper.size() * sizeof(matrixIndexPair), cudaMemcpyHostToDevice);
+		cudaMalloc((void**)&(gpu_commons.gpu_guide_construction), helper->constructionHelper.size() * sizeof(matrixIndexPair));
+		cudaMemcpy(gpu_commons.gpu_guide_construction, helper->constructionHelper.data(), helper->constructionHelper.size() * sizeof(matrixIndexPair), cudaMemcpyHostToDevice);
 
-		cudaMalloc((void**)&gpu_guide_summation, helper->summationHelper.size() * sizeof(int));
-		cudaMemcpy(gpu_guide_summation, helper->summationHelper.data(), helper->summationHelper.size() * sizeof(int), cudaMemcpyHostToDevice);
+		cudaMalloc((void**)&(gpu_commons.gpu_guide_summation), helper->summationHelper.size() * sizeof(int));
+		cudaMemcpy(gpu_commons.gpu_guide_summation, helper->summationHelper.data(), helper->summationHelper.size() * sizeof(int), cudaMemcpyHostToDevice);
 
-		cudaMalloc((void**)&gpu_guide_maxima, helper->maximaHelper.size() * sizeof(int));
-		cudaMemcpy(gpu_guide_maxima, helper->maximaHelper.data(), helper->maximaHelper.size() * sizeof(int), cudaMemcpyHostToDevice);
+		cudaMalloc((void**)&(gpu_commons.gpu_guide_maxima), helper->maximaHelper.size() * sizeof(int));
+		cudaMemcpy(gpu_commons.gpu_guide_maxima, helper->maximaHelper.data(), helper->maximaHelper.size() * sizeof(int), cudaMemcpyHostToDevice);
 	}
 }
+
 
 void processor::run()
 {
@@ -71,7 +60,16 @@ void processor::run()
 	{
 		thread.join();
 	}
-	cudaMemcpy(&maxDifference, gpu_constant_maxima, sizeof(keyEntry), cudaMemcpyDeviceToHost);
+
+	std::vector<keyEntry> results;
+	for (auto& feed : factory)
+	{
+		results.push_back(feed->getMax());
+	}
+
+	//deref the iterator returned from max
+	maxDifference = *std::max_element(results.begin(), results.end());
+	
 
 #if runTiming
 	record_TCT();
@@ -91,20 +89,42 @@ void processor::run()
 
 }
 
-void processor::contactProcessor(std::vector<keyEntry>& input, char feedID)
+
+//right now we are using two streams, one for each feeder, no reason it couldn't be a single stream since only one is ever in use at a time?
+void processor::contactProcessor(std::vector<keyEntry>& input, const char feedID, cudaStream_t stream, gpuFeedMem feedMem)
 {
-	while (feedID == gpuLock.load())
-	{
-
-	}
-
+	
 #if debugOutput
 	printData(0, input.data());
 #endif // DEBUG	
 
-	processDataFrame(input);
+#if frameTiming
+	clock_FCT();
+#endif // 0
 
-	gpuLock.store(feedID+lockBreaker);
+	//busy wait on the lock
+	while (feedID + lockBreaker== gpuLock.load()){}
+
+	cudaMemcpyAsync(feedMem.gpu_permutation_data, input.data(), size_t(permutation_size) * size_t(rows) * sizeof(keyEntry), cudaMemcpyHostToDevice, stream);
+
+	construct(feedMem.gpu_permutation_data, feedMem.gpu_matrix_UTM, gpu_commons.gpu_matrix_base, gpu_commons.gpu_guide_construction, permutation_size, matrix_size, rows, stream);
+
+	summation(feedMem.gpu_matrix_UTM, feedMem.gpu_row_sums, gpu_commons.gpu_guide_summation, helper->summation_size, matrix_size, helper->summation_reductions, rows, helper->summation_threads, stream);
+
+	maxima(feedMem.gpu_row_sums, feedMem.gpu_constant_maxima, gpu_commons.gpu_guide_maxima, rows, helper->maxima_size, helper->maxima_reductions, helper->maxima_threads, stream);
+
+	//I would have thought this stream synchronize neccessary, but cutting it out doesn't seem to corrupt results and cuts total execution time in HALF.
+	// It may just be lucky that streams finish before the prior stream does and cross frame contamination is avoided, and this makes me wonder if two sets of GPU memory arrays would help
+	// to be fair, I'm not certain cross frame contamination ISN'T happening.
+	//cudaStreamSynchronize(stream);
+
+	//toggle the lock
+	gpuLock.store(feedID);
+
+
+#if frameTiming
+	record_FCT();
+#endif // 0
 }
 
 void processor::relaxLock()
@@ -112,19 +132,19 @@ void processor::relaxLock()
 	lockBreaker = 1;
 }
 
-keyEntry processor::getMax()
+const keyEntry processor::getMax()
 {
 	return maxDifference;
 }
 
-void processor::printCompletion(std::string msg)
+void processor::printCompletion(const std::string msg)
 {
 	printMtx.lock();
 	std::cout << msg << std::endl;
 	printMtx.unlock();
 }
 
-void processor::printData(int frameNum, keyEntry * data)
+const void processor::printData(const int frameNum, keyEntry * data)
 {
 	auto tableSize =  rows * permutation_size;
 	printf("Data:\n");
@@ -177,30 +197,6 @@ void processor::createFeeds()
 
 }
 
-void processor::processDataFrame(std::vector<keyEntry>& input)
-{
-#if frameTiming
-	clock_FCT();
-#endif // 0
-
-	keyEntry result = 0;
-
-	cudaMemcpy(gpu_permutation_data, input.data(), size_t(permutation_size) * size_t(rows) * sizeof(keyEntry), cudaMemcpyHostToDevice);
-
-	construct(gpu_permutation_data, gpu_matrix_UTM, gpu_matrix_base, gpu_guide_construction, permutation_size, matrix_size, rows);
-
-	summation(gpu_matrix_UTM, gpu_row_sums, gpu_guide_summation, helper->summation_size, matrix_size, helper->summation_reductions, rows, helper->summation_threads);
-
-	maxima(gpu_row_sums, gpu_constant_maxima, gpu_guide_maxima, rows, helper->maxima_size,helper->maxima_reductions, helper->maxima_threads);
-
-
-#if frameTiming
-	record_FCT();
-#endif // 0
-
-}
-
-
 #if frameTiming
 void processor::clock_FCT()
 {
@@ -240,7 +236,7 @@ void processor::record_TCT()
 	timeElapsed = std::chrono::high_resolution_clock::now() - tTic;
 }
 
-void processor::display_TCT()
+const void processor::display_TCT()
 {
 	std::cout << "Total Completion Time: " << timeElapsed.count() << " seconds." << std::endl;
 }
