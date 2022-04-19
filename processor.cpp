@@ -26,19 +26,27 @@ void processor::initGPUMemory()
 		}
 
 		cudaMalloc((void**)&(gpu_commons.gpu_matrix_base), matrix_size * sizeof(keyEntry));
+		processor::cudaErrorCheck("base matrix allocate");
 		cudaMemcpy(gpu_commons.gpu_matrix_base, base.data(), matrix_size * sizeof(keyEntry), cudaMemcpyHostToDevice);
+		processor::cudaErrorCheck("base matrix copy");
 	}
 
 	// allocate and load helpers
 	{
 		cudaMalloc((void**)&(gpu_commons.gpu_guide_construction), helper->constructionHelper.size() * sizeof(matrixIndexPair));
+		processor::cudaErrorCheck("construction guide allocate");
 		cudaMemcpy(gpu_commons.gpu_guide_construction, helper->constructionHelper.data(), helper->constructionHelper.size() * sizeof(matrixIndexPair), cudaMemcpyHostToDevice);
+		processor::cudaErrorCheck("construction guide copy");
 
 		cudaMalloc((void**)&(gpu_commons.gpu_guide_summation), helper->summationHelper.size() * sizeof(int));
+		processor::cudaErrorCheck("summation guide allocate");
 		cudaMemcpy(gpu_commons.gpu_guide_summation, helper->summationHelper.data(), helper->summationHelper.size() * sizeof(int), cudaMemcpyHostToDevice);
+		processor::cudaErrorCheck("summation guide copy");
 
 		cudaMalloc((void**)&(gpu_commons.gpu_guide_maxima), helper->maximaHelper.size() * sizeof(int));
+		processor::cudaErrorCheck("maxima guide allocate");
 		cudaMemcpy(gpu_commons.gpu_guide_maxima, helper->maximaHelper.data(), helper->maximaHelper.size() * sizeof(int), cudaMemcpyHostToDevice);
+		processor::cudaErrorCheck("maxima guide copy");
 	}
 }
 
@@ -142,6 +150,15 @@ void processor::printCompletion(const std::string msg)
 	printMtx.lock();
 	std::cout << msg << std::endl;
 	printMtx.unlock();
+}
+
+void processor::cudaErrorCheck(const std::string msg)
+{
+	cudaError err = cudaGetLastError();
+	if (err != cudaSuccess)
+	{
+		std::cout << "CUDA Error: " << cudaGetErrorString(err)<<" from "<<msg<< std::endl;
+	}
 }
 
 const void processor::printData(const int frameNum, keyEntry * data)

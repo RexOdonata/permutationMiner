@@ -36,6 +36,8 @@ class processor
 
 		void printCompletion(const std::string msg);
 
+		static void cudaErrorCheck(const std::string msg);
+
 	private:
 
 		//functions

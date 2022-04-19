@@ -10,13 +10,20 @@ feeder::feeder(int set_rowsPerThread, int set_permutation_size, processor * set_
 	// allocate memory on the GPU
 	{
 		cudaMallocHost((void**)&(gpu_feed_private.gpu_permutation_data), size_t(rows) * size_t(permutation_size) * sizeof(keyEntry));
+		processor::cudaErrorCheck("Allocate feeder Permution Array");
 
 		cudaMalloc((void**)&(gpu_feed_private.gpu_matrix_UTM), size_t(rows) * size_t(matrix_size) * sizeof(keyEntry));
+		processor::cudaErrorCheck("Allocate feeder UTM matrix array");
 
 		cudaMalloc((void**)&(gpu_feed_private.gpu_row_sums), size_t(rows) * sizeof(keyEntry));
+		processor::cudaErrorCheck("Allocate row sums array");
 
 		cudaMallocHost((void**)&(gpu_feed_private.gpu_constant_maxima), sizeof(keyEntry));
-		cudaMemcpy(gpu_feed_private.gpu_constant_maxima, 0, sizeof(keyEntry), cudaMemcpyHostToDevice);
+		processor::cudaErrorCheck("Allocate maxima data element");
+
+		const keyEntry zero = 0;
+		cudaMemcpy(gpu_feed_private.gpu_constant_maxima, &zero, sizeof(keyEntry), cudaMemcpyHostToDevice);
+		processor::cudaErrorCheck("copy initialize maxima to 0");
 	}
 
 	max = 0;
