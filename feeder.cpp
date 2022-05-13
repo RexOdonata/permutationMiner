@@ -43,31 +43,46 @@ void feeder::loadGenerator()
 
 void feeder::run()
 {
-	while (done == false)
+	auto procComplete = false;
+	while (!procComplete)
 	{
 #if frameTiming
 		clock_FPT();
 #endif // DEBUG
 
-		done=fillFrame();
+		procComplete = fillFrame();
 
 #if frameTiming
 		record_FPT();
 #endif // DEBUG
 
-		proc->contactProcessor(data,id, stream, gpu_feed_private);
+		rdy.store(true);
+
+		spinLock();
 	}
+
+	done = true;
 	
 	//copy result into private
 	cudaStreamSynchronize(stream);
 	cudaMemcpy(&max, gpu_feed_private.gpu_constant_maxima, sizeof(keyEntry), cudaMemcpyDeviceToHost);
 
-	proc->relaxLock();
+}
+
+void feeder::contactProcessor()
+{
+	proc->processFrame(data, id, stream, gpu_feed_private);
+	rdy.store(false);
 }
 
 const keyEntry feeder::getMax()
 {
 	return max;
+}
+
+bool feeder::isDone()
+{
+	return done;
 }
 
 bool feeder::fillFrame()
@@ -101,6 +116,14 @@ void feeder::padFrame(int startRow)
 	for (int row = startRow; row < rows; row++)
 	{
 		source->loadData(data,row);
+	}
+}
+
+void feeder::spinLock()
+{
+	while (rdy.load() == true)
+	{
+		//busy wait
 	}
 }
 

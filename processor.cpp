@@ -9,7 +9,6 @@ processor::processor(int set_permutation_Size, std::vector<keyEntry>& set_preset
 
 	initGPUMemory();
 
-	gpuLock.store(0);
 }
 
 void processor::initGPUMemory()
@@ -51,6 +50,40 @@ void processor::initGPUMemory()
 }
 
 
+void processor::runLoop()
+{
+	auto go = true;
+
+	auto doneCount = 0;
+	
+	while (go)
+	{
+		for (auto& feed : factory)
+		{
+			if (feed->rdy.load())
+			{
+				feed->contactProcessor();
+			}
+			else if (feed->isDone())
+			{
+				doneCount++;
+			}
+
+		}
+
+		if (doneCount == feedThreads)
+		{
+			go = false;
+
+		}
+
+		doneCount = 0;
+
+	}
+
+}
+
+
 void processor::run()
 {
 	std::vector<std::thread> threads;
@@ -63,6 +96,8 @@ void processor::run()
 	{
 		threads.emplace_back(std::thread(&feeder::run,feed.get()));
 	}
+
+	runLoop();
 
 	for (auto& thread : threads)
 	{
@@ -77,6 +112,8 @@ void processor::run()
 
 	//deref the iterator returned from max
 	maxDifference = *std::max_element(results.begin(), results.end());
+
+	cudaDeviceReset();
 	
 
 #if runTiming
@@ -99,7 +136,7 @@ void processor::run()
 
 
 //right now we are using two streams, one for each feeder, no reason it couldn't be a single stream since only one is ever in use at a time?
-void processor::contactProcessor(std::vector<keyEntry>& input, const char feedID, cudaStream_t stream, gpuFeedMem feedMem)
+void processor::processFrame(std::vector<keyEntry>& input, const char feedID, cudaStream_t stream, gpuFeedMem feedMem)
 {
 	
 #if debugOutput
@@ -110,24 +147,18 @@ void processor::contactProcessor(std::vector<keyEntry>& input, const char feedID
 	clock_FCT();
 #endif // 0
 
-	//busy wait on the lock
-	while (feedID + lockBreaker== gpuLock.load()){}
-
 	cudaMemcpyAsync(feedMem.gpu_permutation_data, input.data(), size_t(permutation_size) * size_t(rows) * sizeof(keyEntry), cudaMemcpyHostToDevice, stream);
 
 	construct(feedMem.gpu_permutation_data, feedMem.gpu_matrix_UTM, gpu_commons.gpu_matrix_base, gpu_commons.gpu_guide_construction, permutation_size, matrix_size, rows, stream);
 
 	summation(feedMem.gpu_matrix_UTM, feedMem.gpu_row_sums, gpu_commons.gpu_guide_summation, helper->summation_size, matrix_size, helper->summation_reductions, rows, helper->summation_threads, stream);
 
-	maxima(feedMem.gpu_row_sums, feedMem.gpu_constant_maxima, gpu_commons.gpu_guide_maxima, rows, helper->maxima_size, helper->maxima_reductions, helper->maxima_threads, stream);
+	maxima(feedMem.gpu_row_sums, feedMem.gpu_constant_maxima, gpu_commons.gpu_guide_maxima, helper->maxima_size , helper->maxima_reductions, helper->maxima_threads, rows, stream);
 
 	//I would have thought this stream synchronize neccessary, but cutting it out doesn't seem to corrupt results and cuts total execution time in HALF.
 	// It may just be lucky that streams finish before the prior stream does and cross frame contamination is avoided, and this makes me wonder if two sets of GPU memory arrays would help
 	// to be fair, I'm not certain cross frame contamination ISN'T happening.
 	//cudaStreamSynchronize(stream);
-
-	//toggle the lock
-	gpuLock.store(feedID);
 
 
 #if frameTiming
@@ -135,10 +166,6 @@ void processor::contactProcessor(std::vector<keyEntry>& input, const char feedID
 #endif // 0
 }
 
-void processor::relaxLock()
-{
-	lockBreaker = 1;
-}
 
 const keyEntry processor::getMax()
 {
@@ -190,27 +217,27 @@ void processor::createFeeds()
 		seedLine.push_back(std::move(newGen));
 	}
 
-
-	rows = (CORES / matrix_size);
-
 	data_size = rows * permutation_size;
 	
+	for (auto it = factory.begin(); it != factory.end(); it++)
+	{
+		auto id = it - factory.begin();
 
-	factory[0] = std::make_unique<feeder>(rows, permutation_size, this, 0);
-	factory[1] = std::make_unique<feeder>(rows, permutation_size, this, 1);
-
+		factory[id] = std::make_unique<feeder>(rows, permutation_size, this, id);
+	}
 
 
 	//assign generators to feeds
 	for (auto it = seedLine.begin(); it != seedLine.end(); it++)
 	{
-		auto index = (it - seedLine.begin())%2;
+		auto index = (it - seedLine.begin())%feedThreads;
 		factory.at(index)->storeGenerator(std::move(*it));		
 	}
 
-	//do initial source loading
-	factory[0]->loadGenerator();
-	factory[1]->loadGenerator();
+	for (auto& feed : factory)
+	{
+		feed->loadGenerator();
+	}
 
 }
 

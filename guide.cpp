@@ -7,7 +7,7 @@ guide::guide(int permutation_size, int matrix_size, int rows)
 	// the amount of reduction iterations to be performed to sum the differences in each row
 	summation_reductions = ceil(log2(matrix_size));
 
-	// the number of items to reduced ( 0 padded to a power of 2)
+	// the total number of items to reduced ( 0 padded to a power of 2)
 	summation_size = pow(2, summation_reductions);
 
 	// the amount of reduction iterations to be performed to find the maximum difference from all rows

@@ -2,7 +2,7 @@
 
 #define keyEntry unsigned short int
 #define keyDistance unsigned short int
-#define CORES 32000
 #define debugOutput false
-#define frameTiming true
+#define frameTiming false
 #define runTiming true
+#define FEEDS 8

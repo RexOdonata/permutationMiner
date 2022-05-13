@@ -7,6 +7,8 @@
 #include <memory>
 #include <chrono>
 
+#include <atomic>
+
 #include "cuda_runtime.h"
 
 
@@ -23,7 +25,13 @@ class feeder
 
 		void run();
 
+		void contactProcessor();
+
 		const keyEntry getMax();
+
+		std::atomic_bool rdy = false;
+
+		bool isDone();
 
 #if frameTiming
 		std::vector<double> frameFillTime;
@@ -60,6 +68,8 @@ class feeder
 		bool fillFrame();
 
 		void padFrame(int startRow);
+
+		void spinLock();
 
 
 

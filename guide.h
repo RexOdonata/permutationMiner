@@ -23,8 +23,11 @@ class guide
 		std::vector<int> summationHelper;
 		std::vector<int> maximaHelper;
 
+		// how many threads to use in a summation reduction
 		int summation_threads;
+		// how many reduction steps to perform in a summation reduction
 		int summation_reductions;
+		//the total number of items to reduced (always a power of 2)
 		int summation_size;
 
 		int maxima_threads;

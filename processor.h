@@ -28,9 +28,7 @@ class processor
 
 		void run();
 
-		void contactProcessor(std::vector<keyEntry> &input, const char feedID, cudaStream_t stream, gpuFeedMem feedMem);
-
-		void relaxLock();
+		void processFrame(std::vector<keyEntry> &input, const char feedID, cudaStream_t stream, gpuFeedMem feedMem);
 
 		const keyEntry getMax();
 
@@ -43,6 +41,8 @@ class processor
 		//functions
 		void createFeeds();
 
+		void runLoop();
+
 		const void printData(const int frameNum, keyEntry * data);
 
 		void initGPUMemory();
@@ -50,7 +50,9 @@ class processor
 		//basic members
 		const int permutation_size;
 		const int matrix_size;
-		int rows;
+		const int rows = 1024;
+
+		const int feedThreads = FEEDS;
 
 		int data_size;
 
@@ -59,10 +61,8 @@ class processor
 		//object members
 		std::vector<keyEntry> preset_permutation;
 
-		std::array<std::unique_ptr<feeder>,2> factory;
+		std::array<std::unique_ptr<feeder>,FEEDS> factory;
 
-		std::atomic_char gpuLock;
-		char lockBreaker = 0;
 
 		std::unique_ptr<guide> helper;
 

@@ -62,9 +62,9 @@ __global__ void device_summation(keyEntry* matrix, keyEntry* rowSums, int* incGu
 	
 }
 
-void maxima(keyEntry* rowSums, keyEntry* gpu_max, int* guide, const int rows, const int reduction_size, const int reductions, int threads, cudaStream_t stream)
+void maxima(keyEntry* rowSums, keyEntry* gpu_max, int* incGuide, const int reduction_size, const int reductions, const int threads, const int rows, cudaStream_t stream)
 {
-	device_maxima << < 1, threads, reduction_size * sizeof(keyEntry), stream >> > (rowSums, gpu_max, guide, reduction_size, reductions, rows);
+	device_maxima << < 1, threads, reduction_size * sizeof(keyEntry), stream >> > (rowSums, gpu_max, incGuide, reduction_size, reductions, rows);
 }
 
 __global__ void device_maxima( keyEntry* rowSums, keyEntry* gpu_max, int* incGuide, const int reduction_size, const int reductions, const int rows)

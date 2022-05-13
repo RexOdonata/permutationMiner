@@ -16,25 +16,25 @@ input::input(int argc, char* argv[])
 		{
 			switch (mode)
 			{
-			case 'n':
-			{
-				permutation_size = std::stoi(argument, nullptr);
-				getInt = false;
-				break;
-			}
-			case 'p':
-			{
-				keyEntry numberIn = std::stoi(argument, nullptr);
-				if (numberIn > 0)
+				case 'n':
 				{
-					preset_permutation.push_back(numberIn);
-				}
-				else
-				{
+					permutation_size = std::stoi(argument, nullptr);
 					getInt = false;
+					break;
 				}
-				break;
-			}
+				case 'p':
+				{
+					keyEntry numberIn = std::stoi(argument, nullptr);
+					if (numberIn > 0)
+					{
+						preset_permutation.push_back(numberIn);
+					}
+					else
+					{
+						getInt = false;
+					}
+					break;
+				}
 			}
 		}
 		else
@@ -49,6 +49,7 @@ input::input(int argc, char* argv[])
 				getInt = true;
 				mode = 'p';
 			}
+
 		}
 
 	}
